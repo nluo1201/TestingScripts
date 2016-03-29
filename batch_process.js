@@ -1,13 +1,15 @@
 
 var cont = true;
 jQuery("document").ready(function() {
-	jQuery('#batch-response').show();
+	jQuery('#batch_response').show();
 	jQuery('#spiningImg').hide();
 	jQuery('.batch-cancel').hide();
 	jQuery('.batch-confirmed').click(function(e) {
 		e.preventDefault();
 		jQuery('.batch-confirmed').hide();
 		jQuery('.batch-cancel').show();
+		jQuery("#batch_response").append('<h4 style="color:purple;"> User initiated Batch Processing!  ... </h4>');
+		jQuery("#batch_response").append('<h3 style="color:blue;"> Processing The Next Batch ... </h3>');
 		jQuery("#batch-cancel").prop( "disabled", false ); // enable cancle button.
 		// start the process
 		var data = {
@@ -22,7 +24,7 @@ jQuery("document").ready(function() {
 })
 
 jQuery("document").ready(function() {
-	jQuery('#batch-response').show();
+	jQuery('#batch_response').show();
 	jQuery('.batch-cancel').click(function(e) {
 		e.preventDefault();
 		jQuery( "#batch_response" ).append("<h4 style='color:red;'> User initiated Cancel Request! </h4>");
@@ -43,7 +45,7 @@ function send_Request(jdata) {
 		type: 'POST',
 		url: ajaxurl,
 		data: jdata,
-		timeout: 100000,
+		timeout: 10000,
 		dataType: "json",
 		beforeSend: function() {
 		  jQuery('#spiningImg').show();    /*showing  a div with spinning image */

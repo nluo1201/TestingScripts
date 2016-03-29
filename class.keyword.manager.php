@@ -7,7 +7,10 @@ class Keyword_Manager {
 	 * @author Henry Luong
 	 */
 	const keyword_slug = 'keyword-manager';
+
+	
 	public function __construct() {
+		createAlchemyDataSettings();
 		add_action( 'admin_menu', array(__CLASS__, 'addKeywordManagerMenu') );
 		add_filter('post_row_actions', array(__CLASS__,'alchemy_redirect'), 10, 2);
 		add_filter('page_row_actions', array(__CLASS__,'alchemy_redirect'), 10, 2);
@@ -510,7 +513,7 @@ class Keyword_Manager {
 					$setstatus = wp_set_object_terms( $postid, $keyword, $taxname, true );
 				}
 			}
-		}	
+		}
 		
 		foreach($pageids as $pageid){
 			foreach($taxonomies as $taxonomy){
@@ -660,18 +663,20 @@ class Keyword_Manager {
 	}
 	
 	/** Polishing each keyword against noise words and inconsistent/not meaningful texts.
-	*  
+	*  also singlurity vs plurals.
 	* @param: $keywords - original keyword object list
 	* @return: list of polished keyword objects
 	* @author: Henry Luong
 	*/
 	public static function polishKeyword($keywords){
-		$pkeywords = $keywords;
 		
+		$pkeywords = $keywords;
 		$i = 0;
 		foreach ($pkeywords as $keyword){
 			$text = $keyword['text'];
-			//$text = preg_replace('/[^.-a-z\d ]/i', '', $text);
+			$text = preg_replace('/[^\w\d\s.-]+/', '', $text);
+			//$text = Inflect::pluralize($text);
+			$text = Inflect::singularize($text);
 			$noise_words = array(
 			'term','word','terms', 'a', 'of','the', 'and', 'to', 'in', 'i', 'is', 'that', 'it', 'on', 'you', 'this', 'for', 'but', 'with', 'are', 'have', 'be', 'at', 'or', 'as', 'was', 'so', 'if', 'out', 'not'); 
 			$regex = "/\b(?<!(-|'))(".implode('|', $noise_words).")(?!(-|'))\b/";
@@ -681,10 +686,33 @@ class Keyword_Manager {
 			$pkeywords[$i] = $keyword;
 			$i++;
 		}
-		
-		return $pkeywords;
+		$result = array_map("unserialize", array_unique(array_map("serialize", $pkeywords)));
+		return $result;
 	}
 
+	public static function save_alchemy_data($kobject, $docid){
+		$mode = isset($GET['mode'])? $GET['mode'] : 0;
+		$settingName = '';
+		if($mode == 'query-batch-process'){
+			$settingName = 'batch';
+		}
+		elseif($mode == 'query-confirmed'){
+			$settingName = 'individual';
+		}
+		else return;
+		$entries = array();
+		foreach($kobject as $keyword){
+			$entry = array(
+				"keyword" => $keyword['text'],
+				"relevance" => $keyword['relevance'],
+				"docids" => array($docid)
+			);
+			$entries[] = $entry;
+		}
+		insert_data_entries($settingName, $entries);
+	}
+	
+	
 	/** Query Alchemy Keywords
 	*  
 	* @param: $docid - The document id to get the contents to query with Alchemy.
@@ -704,6 +732,7 @@ class Keyword_Manager {
 		$response = $alchemyAdapter->keywords('html', $html_content, array('keywordExtractMode' => 'strict' ));
 		setApi_incCounter('alchemy');
 		if($response['status'] == 'OK') {
+			self::save_alchemy_data($response['keywords'], $docid);
 			$pkeywords = self::polishKeyword($response['keywords']);
 			return $pkeywords;
 		}
