@@ -10,6 +10,7 @@ class Keyword_Manager {
 
 	
 	public function __construct() {
+		createAlchemyDataSettings();
 		add_action( 'admin_menu', array(__CLASS__, 'addKeywordManagerMenu') );
 		add_filter('post_row_actions', array(__CLASS__,'alchemy_redirect'), 10, 2);
 		add_filter('page_row_actions', array(__CLASS__,'alchemy_redirect'), 10, 2);
@@ -689,6 +690,29 @@ class Keyword_Manager {
 		return $result;
 	}
 
+	public static function save_alchemy_data($kobject, $docid){
+		$mode = isset($GET['mode'])? $GET['mode'] : 0;
+		$settingName = '';
+		if($mode == 'query-batch-process'){
+			$settingName = 'batch';
+		}
+		elseif($mode == 'query-confirmed'){
+			$settingName = 'individual';
+		}
+		else return;
+		$entries = array();
+		foreach($kobject as $keyword){
+			$entry = array(
+				"keyword" => $keyword['text'],
+				"relevance" => $keyword['relevance'],
+				"docids" => array($docid)
+			);
+			$entries[] = $entry;
+		}
+		insert_data_entries($settingName, $entries);
+	}
+	
+	
 	/** Query Alchemy Keywords
 	*  
 	* @param: $docid - The document id to get the contents to query with Alchemy.
@@ -708,6 +732,7 @@ class Keyword_Manager {
 		$response = $alchemyAdapter->keywords('html', $html_content, array('keywordExtractMode' => 'strict' ));
 		setApi_incCounter('alchemy');
 		if($response['status'] == 'OK') {
+			self::save_alchemy_data($response['keywords'], $docid);
 			$pkeywords = self::polishKeyword($response['keywords']);
 			return $pkeywords;
 		}
